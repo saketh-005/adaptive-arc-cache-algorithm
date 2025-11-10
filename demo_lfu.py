@@ -74,26 +74,42 @@ def demo_lfu():
     print("LFU (Least Frequently Used) Cache Demonstration")
     print("="*70)
     
-    # Configuration
+    # Configuration — use the hybrid workload (frequency phases + recency bursts)
     cache_capacity = 50
-    workload_size = 1000
-    data_universe = 200
-    
+    cycles = 40
+    hot_size = 20
+    hot_accesses = 50
+    burst_size = 50
+
     print(f"\nConfiguration:")
     print(f"  Cache Capacity: {cache_capacity}")
-    print(f"  Workload Size: {workload_size} accesses")
-    print(f"  Data Universe: {data_universe} unique keys")
-    
+    print(f"  Workload: cycles={cycles}, hot_size={hot_size}, hot_accesses={hot_accesses}, burst_size={burst_size}")
+
     # Create cache
     cache = LFUCache(capacity=cache_capacity)
-    
-    # Generate realistic workload (Zipf distribution)
-    print("\nGenerating Zipf workload...")
-    workload = []
-    weights = [1.0 / (i + 1) ** 1.5 for i in range(data_universe)]
-    total = sum(weights)
-    weights = [w / total for w in weights]
-    workload = random.choices(range(data_universe), weights=weights, k=workload_size)
+
+    # Hybrid workload generator (local copy)
+    def generate_hybrid_workload(cycles=40, hot_size=20, hot_accesses=50, burst_size=50, start_unique=10000, rotate_every=8, rotate_shift=50):
+        workload = []
+        base_hot = 0
+        hot_set = list(range(base_hot, base_hot + hot_size))
+        unique_id = start_unique
+
+        for c in range(cycles):
+            if rotate_every and c % rotate_every == 0 and c > 0:
+                base_hot += rotate_shift
+                hot_set = list(range(base_hot, base_hot + hot_size))
+
+            for _ in range(hot_accesses):
+                workload.append(random.choice(hot_set))
+
+            for _ in range(burst_size):
+                workload.append(unique_id)
+                unique_id += 1
+
+        return workload
+
+    workload = generate_hybrid_workload(cycles=cycles, hot_size=hot_size, hot_accesses=hot_accesses, burst_size=burst_size)
     
     # Run test
     print("Running test...")
@@ -121,7 +137,7 @@ def demo_lfu():
     print(f"Cache Misses:     {stats['misses']}")
     print(f"Hit Rate:         {stats['hit_rate']:.2%}")
     print(f"Runtime:          {runtime:.2f} ms")
-    print(f"Avg per access:   {runtime/workload_size:.4f} ms")
+    print(f"Avg per access:   {runtime/len(workload):.4f} ms")
     print("="*70)
     
     return stats
